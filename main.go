@@ -4,25 +4,22 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math/rand"
-
-	//"math/rand"
 	"net/http"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	batch "github.com/Deeptiman/go-batch"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 type Resources struct {
-	id   int `json:"id"`
-	name string `json:"name"`
-	flag bool `json:"flag"`
+	Id   int `json:"id"`
+	Name string `json:"name"`
+	Flag bool `json:"flag"`
 }
 // 1
 type longLatStruct struct {
 	Long float64 `json:"longitude"`
 	Lat  float64 `json:"latitude"`
-	Id int `json:"id"`
 }
 type client struct{
 	Conn *websocket.Conn
@@ -81,19 +78,18 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err ==nil{
-		fmt.Println("New connection")
-		new_id:=rand.Int()%100
-		clients[new_id]=ws
-		ws.WriteMessage(1,[]byte(fmt.Sprintf("id %d",new_id)))
+	defer ws.Close()
+	timeoutDuration:= 5 * time.Minute
+	ws.SetReadDeadline(time.Now().Add(timeoutDuration))
+	for {
+		var coordinates longLatStruct
+		if err := ws.ReadJSON(&coordinates); err == nil {
+			go echo(ws)
+		}
 	}
 
 	// register client
-	var coordinates longLatStruct
-	if err := ws.ReadJSON(&coordinates); err == nil {
-		go writer(&coordinates)
-		go echo(clients[coordinates.Id])
-	}
+
 
 
 
@@ -101,10 +97,6 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 // 3
 func echo(client *websocket.Conn) {
-
-
-	for {
-		val := <-broadcast
 
 		logs := log.New()
 
@@ -117,14 +109,18 @@ func echo(client *websocket.Conn) {
 
 			// Infinite loop to listen to the Consumer Client Supply Channel that releases
 			// the []BatchItems for each iteration.
-			for {
+
 
 				for bt := range b.Consumer.Supply.ClientSupplyCh {
 					//latlong := fmt.Sprintf("%f %f %d", val.Lat, val.Long,i)
 					// send to every client that is currently connected
+					var result []interface{};
+					for _,data := range bt{
+						temp:=data.Item
+						result=append(result, temp)
+					}
+					file, _ := json.MarshalIndent(result, "", " ")
 
-					file, _ := json.MarshalIndent(bt, "", " ")
-					fmt.Println(val)
 					err := client.WriteMessage(websocket.TextMessage, []byte(file))
 					if err != nil {
 						log.Printf("Websocket error: %s", err)
@@ -141,17 +137,18 @@ func echo(client *websocket.Conn) {
 					//_ = ioutil.WriteFile("test"+strconv.Itoa(i)+".json", file, 0644)
 
 				}
-				b.Close()
-			}
+
+
 		}()
 
 		for i := 1; i <= rFlag; i++ {
 			b.Item <- Resources{
-				id:   i,
-				name: fmt.Sprintf("%s%d", "R-", i),
-				flag: false,
+				Id:   i,
+				Name: fmt.Sprintf("%s%d", "R-", i),
+				Flag: false,
 			}
 		}
+		b.Close()
 
 		//latlong := fmt.Sprintf("%f %f %d", val.Lat, val.Long,i)
 		//// send to every client that is currently connected
@@ -164,5 +161,9 @@ func echo(client *websocket.Conn) {
 		//	}
 		//}
 
-	}
+
 }
+//func getResourceFromItem(data interface{}) Resources {
+//	m := data.(Resources)
+//	return resource
+//}
