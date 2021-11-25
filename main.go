@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -10,6 +12,7 @@ import (
 	batch "github.com/Deeptiman/go-batch"
 	log "github.com/sirupsen/logrus"
 	"time"
+	"github.com/360EntSecGroup-Skylar/excelize"
 )
 type Resources struct {
 	Id   int `json:"id"`
@@ -114,27 +117,37 @@ func echo(client *websocket.Conn) {
 				for bt := range b.Consumer.Supply.ClientSupplyCh {
 					//latlong := fmt.Sprintf("%f %f %d", val.Lat, val.Long,i)
 					// send to every client that is currently connected
-					var result []interface{};
-					for _,data := range bt{
-						temp:=data.Item
-						result=append(result, temp)
-					}
-					file, _ := json.MarshalIndent(result, "", " ")
+					//var result []interface{};
+					//for _,data := range bt{
+					//	temp:=data.Item
+					//	result=append(result, temp)
+					//}
+					//file, _ := json.MarshalIndent(result, "", " ")
+					xlFile := excelize.NewFile()
+					sheetName := "transaction-report"
+					xlFile.SetSheetName("Sheet1", "transaction-report")
+					// set default column name
+					xlFile.SetCellValue(sheetName, "A1", "ID")
+					xlFile.SetCellValue(sheetName, "B1", "Name")
+					xlFile.SetCellValue(sheetName, "C1", "Flag")
 
-					err := client.WriteMessage(websocket.TextMessage, []byte(file))
+					for i, data := range bt {
+						xlFile.SetCellValue(sheetName, fmt.Sprintf("A%d", i+2), data.Item.(Resources).Id)
+						xlFile.SetCellValue(sheetName, fmt.Sprintf("B%d", i+2), data.Item.(Resources).Name)
+						xlFile.SetCellValue(sheetName, fmt.Sprintf("C%d", i+2), data.Item.(Resources).Flag)
+					}
+					var b bytes.Buffer
+					writr := bufio.NewWriter(&b)
+					if err := xlFile.Write(writr);err!=nil{
+						log.Println("error writing")
+					}
+					err := client.WriteMessage(websocket.BinaryMessage, b.Bytes())
 					if err != nil {
 						log.Printf("Websocket error: %s", err)
 						client.Close()
 
 					}
 
-					//i=i+1
-					//logs.WithFields(log.Fields{"Batch": bt}).Warn("Client")
-					//log.Println("test")
-					//log.Println(bt[0].Item)
-					//file, _ := json.MarshalIndent(bt, "", " ")
-					//
-					//_ = ioutil.WriteFile("test"+strconv.Itoa(i)+".json", file, 0644)
 
 				}
 
