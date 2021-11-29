@@ -1,0 +1,78 @@
+<html>
+   <head>
+    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="assets/fonts/fontawesome5-overrides.min.css">
+   </head>
+   <body>
+      <h1>Websocket for Batch Processing Simulation</h1>
+     <!-- 1 -->
+      <div id="long"></div>
+      <div id="lat"></div>
+      <form class="user" id="user">
+        <button class="btn btn-primary d-block btn-user w-100" type="submit">Download</button>
+      </form>
+      
+      <script type="text/javascript">
+         
+        // 2
+         var exampleSocket = new WebSocket("ws://localhost:8844/ws")
+         var long = document.getElementById("long");
+         // 3
+         let blb=[]
+         var update = function(){
+         var index=0
+           exampleSocket.onmessage = function (e) {
+             console.log(e.data)
+             if(e.data =="Done"){
+               for(let i=0;i<blb.length;i++){
+                var blob=new Blob([blb[i]], {type: "application/octet-stream"});// change resultByte to bytes
+
+                var link=document.createElement('a');
+                link.href=window.URL.createObjectURL(blob);
+                link.download=i+".xlsx";
+                link.click()
+                link.remove()
+                
+             }
+            }else{
+              blb.push(e.data)
+             }
+          
+            // var element = document.createElement('a');
+            // element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(event.data));
+            // element.setAttribute('download', index+".txt");
+
+            // element.style.display = 'none';
+            // document.body.appendChild(element);
+
+            // element.click();
+
+            // document.body.removeChild(element);
+            
+               
+            }
+         };
+         window.setTimeout(update);
+         var form_el = document.getElementById("user");
+        form_el.addEventListener("submit", function(e) {
+            e.preventDefault();
+            console.log("masuk")
+            data={
+                "longitude":18.063240,
+                "latitude":18.063240,
+        }
+            
+            exampleSocket.send(JSON.stringify(data))
+            
+        })
+         
+
+      </script>
+      <script type="text/javascript">
+         
+      </script>
+   </body>
+</html>
