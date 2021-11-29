@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net/http"
+	"github.com/360EntSecGroup-Skylar/excelize"
+	batch "github.com/Deeptiman/go-batch"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	batch "github.com/Deeptiman/go-batch"
 	log "github.com/sirupsen/logrus"
+	"net/http"
+	"sync"
 	"time"
-	"github.com/360EntSecGroup-Skylar/excelize"
 )
 type Resources struct {
 	Id   int `json:"id"`
@@ -100,6 +101,15 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 // 3
 func echo(client *websocket.Conn) {
+	defer func() {
+		log.Println("masuk")
+		err:= client.WriteMessage(websocket.TextMessage,[]byte("Done"))
+		if err !=nil{
+			log.Println("error")
+		}
+
+	}()
+	var wg sync.WaitGroup
 
 		logs := log.New()
 
@@ -112,9 +122,8 @@ func echo(client *websocket.Conn) {
 
 			// Infinite loop to listen to the Consumer Client Supply Channel that releases
 			// the []BatchItems for each iteration.
-
-
 				for bt := range b.Consumer.Supply.ClientSupplyCh {
+					wg.Add(1)
 					//latlong := fmt.Sprintf("%f %f %d", val.Lat, val.Long,i)
 					// send to every client that is currently connected
 					//var result []interface{};
@@ -147,11 +156,10 @@ func echo(client *websocket.Conn) {
 						client.Close()
 
 					}
+					wg.Done()
 
 
 				}
-
-
 		}()
 
 		for i := 1; i <= rFlag; i++ {
@@ -162,6 +170,7 @@ func echo(client *websocket.Conn) {
 			}
 		}
 		b.Close()
+		wg.Wait()
 
 		//latlong := fmt.Sprintf("%f %f %d", val.Lat, val.Long,i)
 		//// send to every client that is currently connected
